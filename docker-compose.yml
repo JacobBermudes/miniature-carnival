@@ -1,9 +1,22 @@
 services:
   telegram-bot:
-    image: jacobbermudes/miniature-carnival:latest
-    container_name: SurfBoost_Telegram_Bot
+    image: myusername/tg-webhook-bot:latest
+    container_name: tg_webhook_bot
     restart: unless-stopped
+    pull_policy: always
     ports:
       - "127.0.0.1:8081:8080"
     env_file:
       - .env
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:alpine
+    container_name: tg_bot_redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:
