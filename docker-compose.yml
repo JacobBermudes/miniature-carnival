@@ -1,6 +1,6 @@
 services:
   telegram-bot:
-    image: myusername/tg-webhook-bot:latest
+    image: jacobbermudes/miniature-carnival:latest
     container_name: tg_webhook_bot
     restart: unless-stopped
     pull_policy: always
