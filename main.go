@@ -34,7 +34,9 @@ func main() {
 	redisAddr := os.Getenv("REDIS_URL")
 
 	rdb = redis.NewClient(&redis.Options{
-		Addr: redisAddr,
+		Addr:     redisAddr,
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       0,
 	})
 
 	var err error
