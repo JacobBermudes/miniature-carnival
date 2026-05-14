@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +19,11 @@ var (
 	rdb       *redis.Client
 	ctx       = context.Background()
 )
+
+type UserSession struct {
+	UserID int64 `json:"user_id"`
+	ChatID int64 `json:"chat_id"`
+}
 
 func main() {
 	botToken := os.Getenv("TELEGRAM_BOT_TOKEN")
@@ -39,39 +45,56 @@ func main() {
 
 	r := gin.Default()
 
+	r.POST("/api/send_message", func(c *gin.Context) {
+		if c.GetHeader("X-API-Key") != externalAPIKey {
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		var req struct {
+			ChatID int64  `json:"chat_id"`
+			Text   string `json:"text"`
+		}
+
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+			return
+		}
+
+		msg := tgbotapi.NewMessage(req.ChatID, req.Text)
+		_, err := bot.Send(msg)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"status": "sent"})
+	})
+
 	r.GET("/api/check", func(c *gin.Context) {
 		if c.GetHeader("X-API-Key") != externalAPIKey {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid API Key"})
+			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
 		userCode := c.Query("code")
-		if userCode == "" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Parameter 'code' is missing"})
-			return
-		}
 
-		tgUIDStr, err := rdb.Get(ctx, userCode).Result()
-		if err == redis.Nil {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Code not found or expired"})
-			return
-		} else if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Redis error"})
-			return
-		}
-
-		userID, _ := strconv.ParseInt(tgUIDStr, 10, 64)
-
-		isSubscribed, err := isUserSubscribed(userID)
+		val, err := rdb.Get(ctx, userCode).Result()
 		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Telegram API error"})
+			c.JSON(http.StatusNotFound, gin.H{"error": "Code not found"})
 			return
 		}
+
+		var session UserSession
+		json.Unmarshal([]byte(val), &session)
+
+		isSubscribed, _ := isUserSubscribed(session.UserID)
 
 		c.JSON(http.StatusOK, gin.H{
-			"code":          userCode,
-			"tg_id":         userID,
 			"is_subscribed": isSubscribed,
+			"tg_user_id":    session.UserID,
+			"chat_id":       session.ChatID,
 		})
 	})
 
@@ -92,9 +115,16 @@ func main() {
 			userID := update.Message.From.ID
 
 			if param != "" {
-				err := rdb.Set(ctx, param, strconv.FormatInt(userID, 10), 0).Err()
+				session := UserSession{
+					UserID: userID,
+					ChatID: update.Message.Chat.ID,
+				}
+
+				sessionData, _ := json.Marshal(session)
+
+				err := rdb.Set(ctx, param, sessionData, 0).Err()
 				if err != nil {
-					log.Printf("Redis Set Error: %v", err)
+					log.Printf("Redis Error: %v", err)
 				}
 			}
 
