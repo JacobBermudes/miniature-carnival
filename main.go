@@ -95,8 +95,6 @@ func main() {
 
 		c.JSON(http.StatusOK, gin.H{
 			"is_subscribed": isSubscribed,
-			"tg_user_id":    session.UserID,
-			"chat_id":       session.ChatID,
 		})
 	})
 
