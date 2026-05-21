@@ -133,25 +133,25 @@ func main() {
 				tgbotapi.NewInlineKeyboardRow(tgbotapi.NewInlineKeyboardButtonData("✅ Я подписался", "check_sub")),
 			)
 
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "Добро пожаловать! Чтобы бесплатно использовать VPN, подпишитесь на наш канал.")
+			msg := tgbotapi.NewMessage(update.Message.Chat.ID, "👋 Добро пожаловать! Для доступа к бесплатному VPN необходима подписка на наш канал.\n🤖 Всё работает полностью автоматически. Вам не обязательно нажимать кнопку проверки в боте или специально возвращаться в SurfBoost после подписки.\n\nПросто подпишитесь на канал - и можете заниматься своими делами! Приложение самостоятельно распознает ваш статус в фоновом режиме через 5 минут.")
 			msg.ReplyMarkup = keyboard
 			bot.Send(msg)
 		}
 
 		if update.CallbackQuery != nil {
-			bot.Request(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
-
 			if update.CallbackQuery.Data == "check_sub" {
 				userID := update.CallbackQuery.From.ID
 				chatID := update.CallbackQuery.Message.Chat.ID
 
 				isSubscribed, err := isUserSubscribed(userID)
 				if err != nil {
+					bot.Request(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
 					bot.Send(tgbotapi.NewMessage(chatID, "Ошибка сервера при проверке."))
 					return
 				}
 
 				if isSubscribed {
+					bot.Request(tgbotapi.NewCallback(update.CallbackQuery.ID, ""))
 					editMsg := tgbotapi.NewEditMessageText(chatID, update.CallbackQuery.Message.MessageID, "🎉 Спасибо! Вы подписаны. Теперь вы можете использовать VPN.")
 					bot.Send(editMsg)
 				} else {
