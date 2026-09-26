@@ -1,5 +1,5 @@
 services:
-  traefik:
+  tgbot-traefik:
     image: traefik:v3.1
     container_name: traefik
     restart: unless-stopped
