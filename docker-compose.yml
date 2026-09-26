@@ -1,15 +1,41 @@
 services:
+  traefik:
+    image: traefik:v3.1
+    container_name: traefik
+    restart: unless-stopped
+    command:
+      - "--api.insecure=false"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.tlschallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.email=vladikskam#gmail.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "traefik_certs:/letsencrypt"
+
   telegram-bot:
     image: jacobbermudes/miniature-carnival:latest
     container_name: tg_webhook_bot
     restart: unless-stopped
     pull_policy: always
-    ports:
-      - "127.0.0.1:8081:8080"
     env_file:
       - .env
     depends_on:
       - redis
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.tgbot.rule=Host(`bot.surfboost.ru`)"
+      - "traefik.http.routers.tgbot.entrypoints=websecure"
+      - "traefik.http.routers.tgbot.tls.certresolver=letsencrypt"
+      - "traefik.http.services.tgbot.loadbalancer.server.port=8080"
 
   redis:
     image: redis:alpine
@@ -23,3 +49,4 @@ services:
 
 volumes:
   redis_data:
+  traefik_certs:
